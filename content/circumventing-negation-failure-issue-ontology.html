@@ -1,0 +1,11 @@
+<pre><code>star_rating(jeanluis, 4).
+star_rating(francesco, 5).
+avg_pph(jeanluis, 72).
+
+good_standard(R) :-
+    star_rating(R, S),
+    S >= 4.
+
+reasonable(R) :-
+    avg_pph(R, P),
+    P < 50.</code></pre><p>tion</p>

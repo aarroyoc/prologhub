@@ -1,0 +1,25 @@
+<p><code>∀a,b,c∈X: (aRb ∧ bRc) ⇒ aRc.</code> If a R related to b and b R related to c then a R related to c.</p><p></p><p>This is the definition of transitive. What&#x27;s interesting is what it doesn&#x27;t say, it doesn&#x27;t preclude cycles, i.e. <code>aRb ∧ bRc ∧ cRa</code>. There are two ways transitive relations can be found, either through search or via some matrix math. Prolog is implicitly a depth-first search, when we backtrack we continue from the most recent choice point, which results in depth-first search. So we&#x27;ll focus on that.</p><h2>Simple case: no cycles</h2><p>If you can guarantee that your domain is a tree structure without cycles, then you can use the typical definition found in beginners books and in <a id="12" linktype="page">Reflexive, Symmetric and Transitive Relations in Prolog</a>.</p><p><code>connected(A, B) :- edge(A, B).</code></p><p><code>connected(A, B) :- edge(A, C), connected(C, B).</code></p><p>But if you&#x27;ve got a cycle, this will get lost in an infinite loop.</p><h2>Dealing with cycles</h2><p>The typical way to manage cycles in depth-first search is to maintain an extended list, which contains the nodes already extended (traversed/ searched/ visited). This is then used to ensure that these nodes are not revisited, which is also useful in a highly connected domain as it reduces the search space.</p><p>We&#x27;ll use an example with a graph:</p><img src="/static/DAG.png" alt="Directed Graph"/><p>Or in code:</p><pre><code>:- use_module(library(lists)).
+
+edge(a, b).
+edge(b, d).
+edge(c, b).
+edge(d, c).
+edge(e, d).
+edge(d, f).
+
+% setup extended list
+connected(A, B) :-
+    % we've already visited the origin
+    connected(A, B, [A]).
+
+% A is connected to B if there's an edge
+% but fail if we've already extended B
+connected(A, B, ExtendedList) :-
+    edge(A, B), \+ member(B, ExtendedList).
+
+% Transitive case, find a node that's
+% connected by and edge and not extended
+% and carry on from there
+connected(A, B, ExtendedList) :-
+    edge(A, C), \+ member(C, ExtendedList),
+    connected(C, B, [C|ExtendedList]).</code></pre><pre><code>connected(a, Node).</code></pre><p>You should find that <code>a</code> is connected to <code>b</code>, <code>d</code>, <code>c</code>, and <code>f</code>. Not only that, but we didn&#x27;t get lost in the <code>b→d→c→b</code> cycle. This program is worth running on your own machine so you can trace it and see how that extended list works.</p><h2>Optimizations</h2><p>Depending on your Prolog implementation and particular domain, there are a few optimizations to consider. Some dialects offer a <code>memberchk/2</code> predicate that is a little more efficient for this use case. If your domain is highly connected and you&#x27;re doing very many membership tests, you might want to use an ordered set instead of a plain list, some dialects offer predicates such as <code>ord_memberchk/2</code>, <code>ord_add_element/3</code> or <code>ord_intersection/4</code> . The last on is useful if you&#x27;d like to get all of the child nodes at once as done by Richard O&#x27;Keefe&#x27;s implementation in &quot;The Craft of Prolog&quot;.</p><p>Finally, if you&#x27;re in one of the rare Prolog dialects that support tabling, you can dispense with the extended list entirely and just table the predicate. This won&#x27;t get stuck in cycles and it will reduce repeated search times significantly. But before you let the magic of tabling solve the problem for you, take the time to learn a little about search algorithms and how they work. After all, search is fundamental to how Prolog works.</p><h2>Further Resources</h2><p>The aforementioned &quot;The Craft of Prolog&quot; is excellent reading on search using Prolog, including breadth-first search and using heuristic measures of distance. Also, we highly recommended the freely available <a href="https://ocw.mit.edu/courses/electrical-engineering-and-computer-science/6-034-artificial-intelligence-fall-2010/lecture-videos/">MIT AI lecture series given by Prof Patrick Henry Winston</a>, which over lectures 4 and 5 goes from Depth-First Search to A*.</p>

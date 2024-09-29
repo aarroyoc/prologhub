@@ -1,0 +1,40 @@
+<p>Explaining itself to end-users is a key feature of Expert Systems, in some applications it&#x27;s absolutely vital. It also sets them apart from the more popular machine learning methods.</p><h2>Homoiconicity</h2><p>The reasoning in Prolog is done through rules with sub-goals, these are essentially queries against a knowledge base. Prolog is homoiconic, meaning we can manipulate these rules (i.e. the language itself) as data in Prolog. Turning these rules into something we can reason about is known as reification. That&#x27;s most of the jargon!</p><p></p><p>You&#x27;ll find Prolog has inbuilt clauses for inspecting code, we&#x27;re most interested in <code>clause/2</code>, which unifies with the head and body of a predicate. A quirk of Tau-Prolog, which we&#x27;re using in your browser means this only works with &quot;public&quot; predicates, therefore we need to declare the predicate as dynamic for the demo to work. Chances are in your dialect you won&#x27;t need to do this.</p><pre><code>:- dynamic(foo/1).
+
+foo(X) :- bar(Y), baz(Z), X is Y + Z, \+ (X = 2 ; X = 3), something(_).
+
+bar(2).
+baz(3).
+something(_).</code></pre><pre><code>foo(X).</code></pre><pre><code>clause(foo(X), Body).</code></pre><p>That&#x27;s some pretty ugly reading, but our contrived example covers a good deal of syntax, such that you shouldn&#x27;t be feeling too lost when expanding on these ideas to make your own explainer.</p><p></p><p>There&#x27;s two parts to being a homoiconic language though, not only do we need to be able to get at the language as data, but we need to be able to manipulate it as such. For this job we&#x27;ll use a DCG.</p><h2>DCG</h2><p>We&#x27;re not going to do a deep-dive on DCG&#x27;s in this post, we do have a few <a href="https://prologhub.pl/?tag=DCG">DCG related posts on PrologHub</a>. If you&#x27;re in need of a complete tutorial you might want to start with the <a href="http://learnprolognow.org/lpnpage.php?pagetype=html&amp;pageid=lpn-htmlch7"><i>Learn Prolog Now!</i> DCG chapter</a>.</p><p>To manipulate the rule as data into an explanation we need to choose what each of the operators mean in natural language. We can then pattern-match on the operators for the DCG rules. We can also call the body to ensure any variables that can be ground are ground.</p><p>A couple of things to watch out for:</p><ul><li>We&#x27;ve only got maximum arity 2 predicates, you&#x27;ll need to decide how you&#x27;ll handle predicates with more.</li><li>Our phrase is not grammatically correct, we get lots of &quot;and&quot;s, should this bother you, it&#x27;s a fun exercise to recurse through the generated list to replace all but the last &quot;and&quot; with a comma.</li><li>We&#x27;re enforcing that <code>phrase/2</code> is called only once; for the demo as we only need the first solution and want to aid readability. But this means the order of clauses in our DCG is important, you&#x27;ll need to add additional guards for robustness.</li></ul><p>Also, most Prolog&#x27;s provide <code>phrase/2</code> or <code>phrase/3</code> predicates that should be used, Tau-Prolog doesn&#x27;t (yet!), so we&#x27;ve written a proxy, chances are you won&#x27;t need this.</p><pre><code>:- use_module(library(lists)). % import maplist/2
+:- dynamic(foo/1).
+
+foo(X) :- bar(Y), baz(Z), X is Y + Z, \+ (X = 2 ; X = 3), something(_).
+bar(2). baz(3). something(_).
+
+% explain(+Rule, -Explanation)
+% generate an Explanation for Rule
+explain(Rule, Explanation) :-
+    nonvar(Rule), var(Explanation), % only one mode supported: +, -
+    clause(Rule, Body),
+    call(Body), % ground vars to values, ensure succeeds
+    once(phrase(explain(:-(Rule, Body)), ExplainList)),
+    maplist(var_something, ExplainList), % ground remaining vars
+    atomic_list_concat(ExplainList, ' ', Explanation). % for reading
+
+% explain//1 DCG
+% match on operators and drill down to explanations
+explain(:-(G, B)) --> explain(G), [is, implied, by], explain(B).
+explain((A, B)) --> explain(A), [and], explain(B).
+explain(;(A, B)) --> explain(A), [or], explain(B).
+explain('\\+'(A)) --> ['it\'s', not, the, case, that], explain(A).
+explain(is(A, B)) --> explain(B), [=, A].
+explain(=(A, B)) --> explain(A), [is, the, same, as], explain(B).
+explain(G) --> { G =.. [F, A, B] }, [A, F, B].
+explain(G) --> { G =.. [F, A] }, [F, A].
+explain(G) -->  [G].
+
+var_something(something) :- !.
+var_something(X) :- nonvar(X).
+
+% This is a built-in for many dialects
+phrase(DCG, List) :-
+    call(DCG, List, []).</code></pre><pre><code>explain(foo(X), Explanation).</code></pre><h2>Conclusion</h2><p>So there we go! Our Prolog can explain itself! Well, to a degree anyway, you&#x27;ll notice that most Expert Systems seem to implement their own domain-specific query language that they use to generate explanations and to query their data. As it stands our program fails to capture disjunctive clauses that aren&#x27;t separated by <code>;</code>. These query languages can limit the expressiveness of the query to what you can explain via your DCG or in some cases provide more operators such as implication, equivalence, universal and existential qualification. Should you wish to implement such a thing, the DCG here should provide you with a useful inspiration for generating your explanations.</p><p></p><p>Some useful exercises to expand on this further:</p><ul><li>Make it grammatically correct without repeated &quot;and&quot;s</li><li>When should you end the sentence and start another?</li><li>If there&#x27;s disjunction, can you only explain the succeeding sub-goals?</li><li>Can you flip it to explain why a goal doesn&#x27;t succeed? By only the sub-goals that fail?</li></ul>

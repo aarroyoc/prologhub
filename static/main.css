@@ -1,0 +1,84 @@
+html {
+  --s: 13px; /* control the size*/
+  --c1: #ffffff;
+  --c2: #99c1f1;
+  
+  --c:#0000,var(--c1) .5deg 119.5deg,#0000 120deg;
+  --g1:conic-gradient(from  60deg at 56.25% calc(425%/6),var(--c));
+  --g2:conic-gradient(from 180deg at 43.75% calc(425%/6),var(--c));
+  --g3:conic-gradient(from -60deg at 50%   calc(175%/12),var(--c));
+  background:
+    var(--g1),var(--g1) var(--s) calc(1.73*var(--s)),
+    var(--g2),var(--g2) var(--s) calc(1.73*var(--s)),
+    var(--g3) var(--s) 0,var(--g3) 0 calc(1.73*var(--s)) 
+    var(--c2);
+  background-size: calc(2*var(--s)) calc(3.46*var(--s));
+}
+
+body {
+    font-family: "B612", serif;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+h1 {
+    font-family: "B612 Mono", monospace;
+    font-weight: 700;
+}
+
+pre, code {
+    font-family: monospace;
+    overflow: scroll;
+}
+
+header, aside, main, footer {
+    background-color: white;
+    max-width: min(48rem, 85vw);
+    padding-left: 1rem;
+    padding-right: 1rem;
+    border: 1px solid black;
+}
+
+header  {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+    width: 30rem;
+    font-family: "B612 Mono";
+
+    margin-top: 0.4rem;
+    margin-bottom: 2rem;
+}
+
+.title {
+    font-size: 3.5rem;
+    text-decoration: none;
+}
+
+@media(max-width: 20rem) {
+    .title {
+        font-size: 2.5rem;
+    }
+}
+
+nav {
+    margin: 0.25rem;
+}
+
+footer {
+    margin-top: 2rem;
+}
+
+img {
+    max-width: min(48rem, 85vw);
+    height: auto;
+}
+
+.black-link {
+    color: black;
+}

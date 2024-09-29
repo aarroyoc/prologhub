@@ -1,0 +1,28 @@
+<p><a id="5" linktype="document">Source code for the project is available for download</a>, unfortunately as we&#x27;re discussing server-side Prolog we can&#x27;t safely make this post interactive.</p><p></p><p>We begin by including a couple of useful library modules, one to open the URL and another to read the JSON document out into a dictionary.</p><pre><code>:- use_module(library(http/http_open),
+    [ http_open/3
+    ]
+).
+:- use_module(library(http/json),
+    [ json_read_dict/2
+    , json_read_dict/3
+    ]
+).</code></pre><p>We&#x27;re importing both arities of <code>json_read_dict</code> so we can discuss using it both with and without options.</p><p>The last thing we need is an endpoint URL to request data from. We&#x27;ll put this into a fact so as to mimic a more realistic application.</p><p><code>location_url(&#x27;https://jsonplaceholder.typicode.com/users/&#x27;).</code></p><p>This endpoint is a free service provided to help developers, many thanks to their sponsors.</p><h2>Getting the data</h2><p>We&#x27;re going to open a stream asking the endpoint for JSON. We&#x27;ll then read that JSON into a SWI-Prolog dict from the open stream. Finally we&#x27;ll close the stream. Just in case something goes awry, we&#x27;ll wrap these three tasks in <code>setup_call_cleanup/3</code>, which will ensure the stream is closed via cleaning up.</p><pre><code>get_json(Dict) :-
+    location_url(URL),
+    setup_call_cleanup(
+        http_open(URL, StreamIn, [request_header('Accept'='application/json')]),
+        json_read_dict(StreamIn, Dict),
+        close(StreamIn)
+    ).</code></pre><p>There are a few ways to specify headers in the options for <code>http_open/3</code>, this is one of the annoying little quirks. However if you use this way it&#x27;ll work!</p><h2>JSON Read Dict Options</h2><p>There are two common options that you may find useful for <code>json_read_dict/3</code>. The first lets you set the tag of the dict, which can be very useful when organizing multiple dicts. Consider the following:</p><p><code>?- list_to_set([_{a: 1}, _{a: 1}], Set).</code></p><p><code>Set = [_{a: 1}, _{a: 1}].</code></p><p><code>false.</code></p><p><code>?- list_to_set([t{a: 1}, t{a: 1}], Set).</code></p><p><code>Set = [t{a: 1}].</code></p><p><code>false.</code></p><p>Only with the tag set can dicts be proved to unify.</p><p></p><p>The other useful option lets you specify how you&#x27;d like the values, by default they are strings but given the wide usage of atoms you may wish to change this. So to adapt the previous predicate for getting data, we could add these options:</p><pre><code>get_json(Dict) :-
+    location_url(URL),
+    setup_call_cleanup(
+        http_open(URL, StreamIn, [request_header('Accept'='application/json')]),
+        json_read_dict(StreamIn, Dict, [tag(json), value_string_as(atom)]),
+        close(StreamIn)
+    ).</code></pre><h2>Run It!</h2><p>Load it up, run it, bookmark this page and the next time you need to grab some data from a JSON API you&#x27;ll be smiling! (Unless the server doesn&#x27;t set the encoding type... still haven&#x27;t got a work around for that one). Just for fun, here&#x27;s something to apply the endpoint in the example code:</p><pre><code>describe :-
+    format("Users:~n"),
+    get_json(D),
+    describe(D).
+describe([]).
+describe([H|T]) :-
+    format(" ~w. ~w~n", [H.get(name), H.get(email)]),
+    describe(T).</code></pre>

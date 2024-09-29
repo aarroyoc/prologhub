@@ -1,0 +1,46 @@
+<h2>A Note About Storing Data</h2><p>Typically when we store some relationship in Prolog the relationship is the functor:</p><p><code>temperature(sun, hot).</code></p><p><code>colour(sun, yellow).</code></p><p>But when we need to reason about the relationship we need to reify it (turn it into a thing). This has the happy side-effect of working nicely with the Prolog execution model and prevents infinite loops too. To reify the above examples we could store them in a number of ways:</p><p><code>triple(sun, temperature, hot).</code></p><p><code>triple(sun, colour, yellow).</code></p><p><code>frame_with_pairs(sun, [temperature-hot, colour-yellow]).</code></p><p><code>frame_with_dict(sun, slots{temperature: hot, colour: yellow}).</code></p><p>For this post we&#x27;ll use triples so that we don&#x27;t need any intermediary predicates to read our facts.</p><h2>Reflexive</h2><p><code>∀</code><code><i>x</i></code><code>∈</code><code><i>X</i></code><code>:</code><code><i>xRx</i></code><code>.</code> For all x in a set X, x is R related to itself, then R is a reflexive property.</p><p>The typical example is &quot;for all numbers in the set of real numbers, each number is equal to itself&quot;, so &quot;equal&quot; is a reflexive property. A slightly more unusual example is from mereology (the study of the part-hood relation), where everything is considered to be part of itself, let&#x27;s use that one for our example.</p><p></p><p></p><pre><code>fact(car, hasPart, engine).
+fact(car, hasPart, wheel).
+fact(car, hasPart, chassis).
+
+hasPart(Whole, Whole).
+hasPart(Whole, Part) :-
+    fact(Whole, hasPart, Part).</code></pre><pre><code>hasPart(car, Part).</code></pre><p>If we&#x27;ve been successful you should see that a car has itself as a part. Personally you may or may not find this odd, but this is a foundation axiom of a whole calculus of mereology where the <code>hasProperPart</code> relation is not reflexive.</p><h2>Symmetric</h2><p><code>∀a,b∈X (aRb⇔bRa).</code> For all a and b in a set X, a is R related to b implies and is implied by b is R related to a.</p><p>A symmetric relationship is one that if it holds in one direction, also holds in the other. The typical examples here are from the family domain with the relations &quot;sibling&quot; and &quot;married&quot;. We&#x27;ll use a similar example of neighbour.</p><pre><code>fact(rose_cottage, neighbour, the_rectory).
+fact(the_manor, neighbour, the_rectory).
+
+neighbour(A, B) :-
+    fact(A, neighbour, B).
+neighbour(A, B) :-
+    fact(B, neighbour, A).</code></pre><pre><code>neighbour(the_rectory, House).</code></pre><h2>Transitive</h2><p><code>∀a,b,c∈X: (aRb ∧ bRc) ⇒ aRc.</code> If a R related to b and b R related to c then a R related to c.</p><p>A transitive relation is best explained through example. Considering the cars previously, <code>hasPart</code> is also transitive, so if the car has a part that is the engine, and the engine has a part that is the battery, then the car has a part that is the battery: <code>car hasPart engine ∧ engine hasPart battery ⇒ car hasPart battery.</code></p><p>In Prolog you&#x27;ll typically first encounter this kind of relationship when trying to write an ancestor predicate for a family tree. We&#x27;ll take a look at an example using nested locations.</p><pre><code>fact(england, locatedIn, uk).
+fact(london, locatedIn, england).
+fact(city_of_westminster, locatedIn, london).
+fact(piccadilly, locatedIn, city_of_westminster).
+
+locatedIn(A, B) :-
+    fact(A, locatedIn, B).
+locatedIn(A, B) :-
+    fact(A, locatedIn, Intermediary),
+    locatedIn(Intermediary, B).</code></pre><pre><code>locatedIn(piccadilly, uk).</code></pre><p>The query should return true first, indicating that Piccadilly is in the UK, followed by false indicating that no more solutions could be found. You can change the query to include a variable to find all the places located within or without the other.</p><h2>Using A Generic Query Predicate</h2><p>To take advantage of the reification of the relation and to save us from writing a lot of code, we can describe the properties of relations and use a generic query predicate.</p><pre><code>relation(hasPart, property, reflexive).
+relation(hasPart, property, transitive).
+relation(locatedIn, property, transitive).
+relation(neighbour, property, symmetric).
+
+query(A, R, A) :-
+    relation(R, property, reflexive).
+query(A, R, B) :-
+    fact(A, R, B).
+query(A, R, B) :-
+    relation(R, property, symmetric),
+    fact(B, R, A).
+query(A, R, B) :-
+    relation(R, property, transitive),
+    fact(A, R, I),
+    query(I, R, B).
+
+fact(country_lane, locatedIn, belle_village).
+fact(rose_cottage, locatedIn, country_lane).
+fact(manor_house, locatedIn, country_lane).
+
+fact(rose_cottage, neighbour, manor_house).
+
+fact(rose_cottage, hasPart, rose_garden).
+fact(rose_garden, hasPart, roses).</code></pre><pre><code>query(House, locatedIn, belle_village), query(House, neighbour, Neighbour), query(Neighbour, hasPart, roses).</code></pre><h2>Conclusion</h2><p>Hopefully this will give you a bit of a head-start next time you&#x27;re needing to encode these properties of relations into your knowledge base. By far the best option is to reify your relations and use a generic query predicate, this will save you lots of development time, especially when writing unit tests. Recommended next step is to run the generic example locally so you can view it with <code>trace</code> or <code>gtrace</code> if you&#x27;ve got SWI-Prolog.</p>

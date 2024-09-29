@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}PrologHub{% endblock %}</title>
+    <link rel="stylesheet" href="/static/fonts.css">
+    <link rel="stylesheet" href="/static/main.css">
+    <link rel="alternate" type="application/rss+xml" title="PrologHub" href="/rss.xml">
+  </head>
+  <body>
+    <header>
+      <a class="title black-link" href="/">PrologHub</a>
+      <nav>
+	<!-- <a class="black-link" href="/faqs/">Sobre mí</a> -->
+	<a class="black-link" href="/archive/">Archive</a>
+	<!-- <a class="black-link" href="https://adrianistan.eu/">Proyectos</a> -->
+      </nav>
+    </header>
+    <main>
+      {% block main %}{% endblock %}
+    </main>
+    <footer>
+      <p>Follow the updates through the <a href="/rss.xml">RSS feed</a></p>
+      <div>&copy; PrologHub authors / 2024</div>
+      <div>Website generated using <a href="https://www.scryer.pl">Scryer Prolog</a></div>
+    </footer>
+</html>

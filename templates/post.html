@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - PrologHub{% endblock %}
+{% block main %}
+  <h1>{{ title }}</h1>
+  <div class="date">{{ date }}</div>
+  <div class="author">{{ author }}</div>
+  <div class="mainContent">{{ content }}</div>
+  <br>
+  <div class="tags">
+    <b>Tags:</b>
+    {% for tag in tags %}
+    <a class="black-link" href="/tag/{{ tag }}">{{ tag }}</a>
+    {% endfor %}
+  </div>
+{% endblock %}

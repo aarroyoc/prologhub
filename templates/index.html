@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block main %}
+  {% for post in posts %}
+  <div>
+    <a class="black-link" href="/{{ post.slug }}"><h2>{{ post.title }}</h2></a>
+    <span>{{ post.date }}</span>
+    <div><p>{{ post.intro }}</p></div>
+    <a class="black-link" href="/{{ post.slug }}">Read more</a>
+  </div>
+  {% endfor %}
+{% endblock %}

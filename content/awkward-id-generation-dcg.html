@@ -1,0 +1,29 @@
+<h2>An ID DCG</h2><p>As programmers we are given problems to solve, like getting the next available ID. It&#x27;s all too easy to set about solving that problem without giving due concern to the problem domain. In my experience this often results in wasted time and messy code. Before trying to manipulate something, we should know what that something is. So we begin, as we always should, by telling the truth: we define what an ID is in this domain.</p><pre><code>% An id for a Class consists of the class_id for that Class, a hyphen, and a number
+id(Class) --> class_id(Class), [-], num.
+
+% Class ids are limited in number and declared manually for maximum flexibility
+class_id(fruit) --> ['F'].
+class_id(vegetable) --> ['V'].
+
+% We use succ/2 to increment through numbers
+num --> num(1).
+num(N) --> [N].
+% Limiting the max number via `M < 3` as "Run Query" finds all answers to infinity
+num(N) --> {succ(N, M), M < 3}, num(M).</code></pre><pre><code>id(Class, ID, []).</code></pre><p>This little DCG can be used to sequentially generate all valid IDs for all valid classes (fruit and vegetable). This means we can also use it to check given IDs are valid, we&#x27;re using our <a id="4" linktype="page">Prolog: Forwards and Backwards</a>!</p><pre><code>id(fruit, ['F', '-', 1], []). % valid id</code></pre><pre><code>id(Veg, [not_valid, '-', N], []).</code></pre><pre><code>id(fruit, Forwards, []).</code></pre><pre><code>id(Backwards, ['V', '-', 2], []).</code></pre><h2>A new ID</h2><p>Now we have defined an ID in context, we can use it to define a new ID. We shall consider a new ID as one that we do not yet know of in our asserted facts:</p><p><code>new_id(Class, ID) :- id(Class, Chars, []), atomic_list_concat(Chars, ID), \+ fact(ID, subClassOf, Class).</code></p><p>This may not be the most efficient manner of coding this, but it sure is easy to reason about, provided you can read DCGs. Here&#x27;s a complete ID generator:</p><pre><code>new_id(Class, ID) :-
+    id(Class, Chars, []),
+    atomic_list_concat(Chars, ID),
+    \+ fact(ID, subClassOf, Class).
+
+id(Class) --> class_id(Class), [-], num.
+
+class_id(fruit) --> ['F'].
+class_id(vegetable) --> ['V'].
+
+num --> num(1).
+num(N) --> [N].
+num(N) --> {succ(N, M), M < 6}, num(M).
+
+fact('F-1', subClassOf, fruit).
+fact('F-2', subClassOf, fruit).
+fact('F-4', subClassOf, fruit).
+fact('V-1', subClassOf, vegetable).</code></pre><pre><code>new_id(fruit, ID).</code></pre>

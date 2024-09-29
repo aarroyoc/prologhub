@@ -1,0 +1,61 @@
+<p>At PrologHub we&#x27;re big fans of <a href="http://tau-prolog.org/">Tau Prolog</a>, it provides all the interactive Prolog code on this website, so we thought we&#x27;d do a quick introduction.</p><p>Tau Prolog is a Prolog interpreter written in JavaScript. This means you can write a total of 6 lines of pure boiler-plate JavaScript, of which 2 are for debugging during development, and do all the usual &quot;stuff&quot; in Prolog instead!</p><p>Let&#x27;s make three &quot;Hello, world&quot; applications that are typical in JavaScript tutorials, using <code>alert</code>, <code>console.log</code> and by manipulating the DOM.</p><p></p><h2>An <code>index.html</code> Template</h2><p>Here&#x27;s a HTML template you can use as a template for all these programs, and others. Besides setting up the DOM, it also contains the boiler-plate JavaScript for calling an <code>init</code> predicate in your Prolog. You can find out more about this boiler-plate in the <a href="http://tau-prolog.org/manual/a-simple-tutorial">Tau-Prolog Simple Tutorial</a>.</p><p>You&#x27;ll also need to <a href="http://tau-prolog.org/downloads">download <code>tau-prolog.js</code></a>, in this template it&#x27;s stored in the same root directory.</p><pre><code><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hello, Tau Prolog!</title>
+</head>
+<body>
+    <h1>Hello, Tau Prolog!</h1>
+    <div id="greet_answers">
+    </div>
+<script src="tau-prolog.js"></script>
+<script type="text/prolog" id="code.pl">
+init :-
+    true.
+</script>
+<script>
+const session = pl.create(1000)
+const parsed = session.consult("code.pl")
+if (parsed !== true) { console.log(pl.format_answer(parsed)) }
+const query = session.query("init.")
+if (query !== true) { console.log(pl.format_answer(query)) }
+// session.answer needs a callback function, here we "mute" the output
+session.answer((a) => {}) 
+// unmuted: 
+// session.answer((a) => console.log(pl.format_answer(a))))
+</script>
+</body>
+</html></code></pre><p>If you need a quick server, here&#x27;s one in SWI-Prolog that&#x27;ll get you up and running, query it with <code>swipl -g serve -s server.pl</code> then navigate to <a href="http://localhost:8888">localhost:8888</a>:</p><pre><code>:- use_module(library(http/thread_httpd)).
+:- use_module(library(http/http_dispatch)).
+:- use_module(library(http/http_files)).
+
+:- http_handler(root(.), http_reply_from_files('.', []), [prefix]).
+
+server(Port) :-
+    http_server(http_dispatch, [port(Port)]).
+
+serve :-
+    server(8888).</code></pre><p>Right, now we can make some &quot;Hello, Tau-Prolog!&quot; programs.</p><h2><code>alert(&quot;Hello, Tau Prolog!&quot;)</code></h2><p>For this we want to access the JavaScript property called <code>alert</code>, which turns out to be a function. We can then apply this function to a list of arguments, we don&#x27;t care about what it returns. We&#x27;re accessing JavaScript here, so we&#x27;ll need that library. <a href="http://tau-prolog.org/documentation#js">The docs for <code>library(js)</code> are here.</a> So our <code>code.pl</code> in our template becomes:</p><pre><code>:- use_module(library(js)).
+
+alert(Text) :-
+    prop(alert, Alert),
+    apply(Alert, [Text], _).
+
+init :-
+    alert('Hello, Tau Prolog!').</code></pre><p>And because we&#x27;re running Tau Prolog, you can try it here too!</p><pre><code>init.</code></pre><h2><code>console.log(&quot;Hello, Tau Prolog!&quot;)</code></h2><p>Using <code>console.log</code> is a little more involved because <code>log</code> is a method of <code>console</code>. It&#x27;s a similar idea, there&#x27;s some property called <code>console</code>, which turns out to be an object, there&#x27;s also a property of this object called <code>log</code>, which turns out to be a function. Once we&#x27;ve got that function, we can apply it again.</p><pre><code>:- use_module(library(js)).
+
+console_log(Text) :-
+    prop(console, Console),
+    prop(Console, log, ConsoleLog),
+    apply(ConsoleLog, [Text], _).
+
+init :-
+    console_log('Hello, Tau Prolog!').</code></pre><p>Again we can query this here, but you&#x27;ll need to open your console to see the results. How you open the console varies from browser to platform, but try <code>F12</code> before searching if you&#x27;re unfamiliar.</p><pre><code>init.</code></pre><h2>Manipulating the DOM</h2><p>Now we&#x27;re getting to the more serious work. We&#x27;re going to need <a href="http://tau-prolog.org/documentation#dom">library(dom), the docs for which are here.</a> To do this we&#x27;ll need to create a whole new HTML element and we&#x27;ll make it a child element of <code>&lt;div id=&quot;greet_answers&quot;&gt;</code>. So that you can run it here and it look quite pretty, we also add a couple of classes.</p><pre><code>:- use_module(library(dom)).
+
+init :-
+    create(li, LI),
+    add_class(LI, 'list-group-item'), % Style
+    add_class(LI, 'list-group-item-info'), % Style
+    html(LI, 'Hello, Tau Prolog!'),
+    get_by_id('greet_answers', Parent),
+    append_child(Parent, LI).</code></pre><p>Now if you query it here you&#x27;ll get an extra &quot;Hello, Tau Prolog!&quot; answer along with the usual <code>true ; false.</code> answer. We made it blue to show it&#x27;s not a usual successful or false answer.</p><pre><code>init.</code></pre><h2>Conclusion</h2><p>This is only a &quot;Hello, world!&quot;, there&#x27;s much more goodness to discover! The great thing about Tau Prolog is it all runs client-side, so queries won&#x27;t hog your server computing power, nor do you need to ensure predicates are safe on your server as you can do all of your reasoning without ever touching the server. Have fun!</p>

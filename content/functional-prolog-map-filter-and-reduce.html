@@ -1,0 +1,47 @@
+<p>Prolog is old, but one of the things it does really well is recursion. However, there&#x27;s only so many decades you can write recursive predicates before you start to notice some patterns. These patterns can be abstracted out into meta-predicates, making our lives easier. They&#x27;ve also had a huge impact on big data computation through parallel programming. We&#x27;ll look at the big three: map, filter and reduce.</p><h2>Map</h2><p>To map in functional programming is to apply some function onto every element of a collection, collecting the results in another collection. In Prolog, the commonly built-in <code>maplist/N</code> will assume this collection is a list, which it typically is. However, should you wish to apply a predicate to a collection of elements other than a list, such as a tree, all you need do is author a suitable <code>maptree/N</code> predicate that traverses your data structure.</p><p></p><p>Let&#x27;s take a look at a simple <code>maplist/N</code> predicate.</p><pre><code>maplist(_Predicate, []).
+maplist(Predicate, [H|T]) :-
+    call(Predicate, H),
+    maplist(Predicate, T).
+
+maplist(_Predicate, [], []).
+maplist(Predicate, [H1|T1], [H2|T2]) :-
+    call(Predicate, H1, H2),
+    maplist(Predicate, T1, T2).
+
+% and so on for increasing numbers of arguments</code></pre><pre><code>maplist(atom, [map, reduce, filter, NotAnAtom]).</code></pre><pre><code>maplist(upcase_atom, [map, reduce, filter], UpperCase).</code></pre><p>By using <code>call/N</code> we can do some awesome things with only a single line because we can provide a predicate with some arguments to <code>maplist/N</code>, if your dialect of Prolog supports lambda functions you can also re-arrange the order of arguments via a lambda. (<code>maplist([E]&gt;&gt;memberchk(E, [map, reduce, filter]), List)</code>)</p><pre><code>maplist(between(1), [10, 100, 1000, 3], [5, 50, 500, Between1And3]).</code></pre><p>Map is probably the easiest of these to get your head around and the most common. We&#x27;ll take a look at the second easiest and probably most common next.</p><h2>Filter</h2><p>To filter is to apply a predicate to a collection to determine their inclusion in the output collection. In Prolog you&#x27;ll often find an <code>include/3</code> and an <code>exclude/3</code> predicate, where <code>include/3</code> will keep the element if the predicate is true whereas <code>exclude/3</code> will keep the element if the predicate is false. Again the built-ins tend to assume a list in Prolog, but again there&#x27;s nothing stopping you from taking the idea and applying it to a different data structure provided you can reduce the structure in some sensible way.</p><p></p><p>Let&#x27;s take a look at some simple <code>include/3</code> and <code>exclude/3</code> predicates. We&#x27;ll use the <code>(_ -&gt; _ ; _)</code> conditional branching syntax for efficiency. Note, this includes an implicit cut, which you&#x27;ll need to be wary of, however we don&#x27;t know what predicate an author might feed as a goal to our predicates, which means we don&#x27;t know how expensive it is to call. For this reason, we&#x27;ll make sure to only call it once, hence the cut. Despite this aim for efficiency, we&#x27;re not going to use a tail-call optimized recursion simply to aid in readability. Should this be important for you, a difference list will preserve the order.</p><pre><code>include(_Goal, [], []).
+include(Goal, [Head|Tail], Included) :-
+    include(Goal, Tail, IncludedSoFar),
+    ( call(Goal, Head)
+    -> Included = [Head|IncludedSoFar]
+    ; Included = IncludedSoFar
+    ).
+
+exclude(_Goal, [], []).
+exclude(Goal, [Head|Tail], NotExcluded) :-
+    exclude(Goal, Tail, NotExcludedSoFar),
+    ( call(Goal, Head)
+    -> NotExcluded = NotExcludedSoFar
+    ; NotExcluded = [Head|NotExcludedSoFar]
+    ).</code></pre><pre><code>include(atom, [map, Var, reduce, 1, filter, compound(term)], Atoms).</code></pre><pre><code>exclude(atom, [map, Var, reduce, 1, filter, compound(term)], NotAtoms).</code></pre><p>Alright, we can take a collection, filter out the elements we&#x27;re interested in and apply predicates to them. That&#x27;s already a powerful set of ideas, but there&#x27;s one more to come.</p><h2>Reduce</h2><p>To reduce is to take a collection and reduce it to a single element. This can be the most tricky and there are a few ways it can be done, especially if you&#x27;re dealing with parallel computing. We&#x27;ll look at the non-parallel folds, there&#x27;s a left fold and a right one. To fold a collection is to combine the elements into a single element, the direction denotes the order in which they are combined. Note, a left fold can be tail-call optimized, a right one can&#x27;t. Again, no need for this to be a list, but typically in Prolog, if you have a built-in <code>foldl/N</code> or <code>foldr/N</code> it&#x27;ll be expecting a list.</p><p>To see why direction is important, consider that, for dividing a list of numbers: <code>[1, 2, 3]</code>, we can either do: <code>1 ÷ (2 ÷ 3) = 1½</code> or <code>(1 ÷ 2) ÷ 3 = ⅙.</code> When folding from the right: <code>1 ÷ (2 ÷ 3)</code>, we&#x27;ll need to run through the list to the last element then start applying the predicate on the way out of the recursion. When folding from the left: <code>(1 ÷ 2) ÷ 3</code>, we&#x27;ll start applying the predicate to elements as we meet them.</p><p>If you look elsewhere for fold functions, and perhaps predicates, you&#x27;ll likely find talk of the generative element, this is the argument that can be provided with another one such that the result of the function is the &quot;other one&quot;. So for addition, this would by 0: <code>x + 0 = x</code>, for multiplication it would be 1: <code>x * 1 = x</code>. This is an implementation detail and leftover from the functional theories upon which these are based. As pragmatists we&#x27;ll be replacing it with the actual leftmost or rightmost element of the list so that we don&#x27;t need it.</p><pre><code>% foldr, peel off the last element for the base
+foldr(_Predicate, [LastElem|[]], LastElem).
+% travel down the list, calling the predicate on exit
+foldr(Predicate, [H|T], Result) :-
+    foldr(Predicate, T, Acc),
+    call(Predicate, H, Acc, Result).
+
+% foldl, peel off the first element for the base
+foldl(Predicate, [H|T], Result) :-
+    foldl(Predicate, T, H, Result).
+
+% call the predicate to update the accumulator, then continue
+foldl(Predicate, [H|T], Acc, Result) :-
+    call(Predicate, Acc, H, NewAcc),
+    foldl(Predicate, T, NewAcc, Result).
+% emptied the list, the Accumulator is the Result
+foldl(_Predicate, [], Result, Result).
+
+add(A, B, C) :-
+    C is A + B.
+
+divide(A, B, C) :-
+    C is A / B.</code></pre><pre><code>foldl(add, [1, 2, 3], Result), foldr(add, [1, 2, 3], Result).</code></pre><pre><code>foldl(divide, [1, 2, 3], LeftFold).</code></pre><pre><code>foldr(divide, [1, 2, 3], RightFold).</code></pre><p>So there we go, we can now apply a predicate between elements of a list to reduce that list to a single element. Before you get carried away basking in the wonder of it all, note that this implementation only works in the forward direction, other modes of use make an interesting exercise!</p><h2>Conclusion</h2><p>These are the big 3 of functional programming, may they save your fingertips from much typing when authoring the procedural meaning behind your Prolog. Not only that, but we&#x27;ve done the whole lot without a mention of Haskell or Category Theory, until now at least! If you were disappointed by this, you may enjoy <a href="https://mercurylang.org/">Mercury</a>.</p><p>A couple of things to pay attention to, all of these predicates are <code>Functor/N</code>, because they can be called with multiple lists if your goal predicate uses them. Also, these are abstractions of common patterns, be wary of using them for a non-common pattern. Each of these traverse the list at least once, sometimes you&#x27;ll find yourself using these in a way that you&#x27;re traversing the list multiple times, when writing your own recursive predicate could do the job in one traversal.</p><p>There&#x27;s lots to be playing with here, before you write your own do check to see if your Prolog dialect provides them as built-ins, they are quite popular. When you&#x27;re comfortable with these, see if your dialect offers lambdas too!</p>

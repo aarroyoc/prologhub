@@ -1,0 +1,12 @@
+@font-face {
+    font-family: "B612";
+    src: local("B612"),
+	 url("B612-Regular.ttf") format("truetype");
+    font-style: normal;
+}
+@font-face {
+    font-family: "B612 Mono";
+    src: local("B612 Mono"),
+	 url("B612-Regular.ttf") format("truetype");
+    font-style: normal;
+}

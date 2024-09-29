@@ -1,0 +1,60 @@
+<h2>Reification from Strings/Atoms</h2><p>This is so common in Prolog that you might not even realise you&#x27;re doing it. Let&#x27;s say we&#x27;ve got a program and we want it to tell us the calories of various foods.</p><p></p><pre><code>% A writeln substitute for the browser
+:- use_module(library(js)).
+writeln(Text) :-
+    prop(alert, Alert),
+    apply(Alert, [Text], _).
+
+calories(milk) :- writeln('Milk has 110 calories').
+calories(egg) :- writeln('An egg has 50 calories').
+calories(bagel) :- writeln('A bagel has 354 calories').</code></pre><pre><code>calories(milk).</code></pre><p>OK, we get the answer we were looking for, but we can&#x27;t do any reasoning with the calorie information. For example if I have egg on a bagel for lunch with a glass of milk, how many calories would I have consumed? We&#x27;ve lost our data in a string (or for this dialect of Prolog, an atom), we need to reify our calorie count to a number.</p><pre><code>% A writeln substitute for the browser
+:- use_module(library(js)).
+writeln(Text) :-
+    prop(alert, Alert),
+    apply(Alert, [Text], _).
+
+% Our reified calorie data
+cal(milk, 110).
+cal(egg, 50).
+cal(bagel, 354).
+
+% Using our reified data
+sum_calories([], 0).
+sum_calories([Food|Tail], Cal) :-
+    sum_calories(Tail, C1),
+    cal(Food, C2),
+    Cal is C1 + C2.
+
+calories(Food) :-
+    sum_calories(Food, Cal),
+    atomic_list_concat(Food, ', ', Foods),
+    atomic_list_concat(['The calorie count for', Foods, 'is', Cal], ' ', Message),
+    writeln(Message).</code></pre><pre><code>calories([milk, bagel, egg]).</code></pre><p>Now we&#x27;ve reified the calorie information, it&#x27;s something we can use to reason with.</p><h2>Reification of Relations</h2><p>As we discussed in <a id="21" linktype="page">Framing Frames</a>, functors in Prolog can&#x27;t be variables: there&#x27;s no way to query <code>?- HowRelated(bee, honey). HowRelated = produces.</code> That&#x27;s just not valid Prolog. So if you need to reason about relations, as we discussed in <a id="12" linktype="page">Reflexive, Symmetric and Transitive Relations in Prolog</a>, you&#x27;ll need to reify them: </p><pre><code>triple(bee, produces, honey).
+triple(bee, livesIn, hive).
+triple(bee, armedWith, sting).</code></pre><pre><code>triple(bee, HowRelated, honey).</code></pre><h2>Reification for Multiple Arguments</h2><p>In knowledge representation it&#x27;s common to use predicates to denote relations between things, such as for the relationship between a thing and its location: <code>location(spoon, kitchen)</code>. When terms get more complicated, for example if our spoon could move, we end up with more than 2 arguments: <code>location(spoon, kitchen, 10)</code>.  Other common cases are including a probability <code>forecast(wales, rain, high)`</code> and capturing trajectory <code>track(iss, 50, 19, 264, 17135, 2, 1, -0.1, 11:52)</code> .</p><p></p><p>I&#x27;ve chosen an example that should be quite easy to read as &quot;the location of the spoon is in the kitchen at 10am&quot;, but the &quot;at&quot; part of the relation is implicit. In the wild, this implicit relation can cause ambiguity, such as in the <code>track/8</code> example which contains location, speed, direction and time information for the International Space Station. </p><p></p><p>So what does reification do for us? In this example we can bundle arguments together into things that describe them. So a location at a time is a 4D interpretation of time: <code>location(spoon, spacetime(kitchen, 10)).</code> Now we have made our 4D representation into a <code>spacetime/2</code> predicate we can treat that like an object and reason about particular spaces at particular times.</p><pre><code>location(spoon, spacetime(kitchen, 10)).
+location(spoon, spacetime(diningroom, 11)).
+location(fork, spacetime(kitchen, 10)).
+% location(fork, spacetime(_, 11)) not defined
+location(spade, spacetime(shed, 10)).
+location(spade, spacetime(shed, 11)).
+
+% Some spacetime reasoning
+location_continues(spacetime(L, T1), spacetime(L, T2)) :-
+    T2 > T1.
+location_changed(spacetime(L1, T1), spacetime(L2, T2)) :-
+    L1 \= L2, T2 > T1.
+
+% Examples using spacetime as a thing
+moved_thing(X) :-
+    location(X, ST1),
+    location(X, ST2),
+    location_changed(ST1, ST2).
+
+not_moved_thing(X) :-
+    location(X, ST1),
+    location(X, ST2),
+    location_continues(ST1, ST2).
+    
+co_located(X, Y, ST) :-
+    location(X, ST),
+    location(Y, ST),
+    X @< Y.</code></pre><p>Note, we can&#x27;t say if the fork has moved, or not moved by 11, we don&#x27;t know if it even continues to exist at 11, hence the <code>not_moved_thing/1</code> predicate rather than <code>\+ moved_thing/1</code>. The spoon has moved, the spade has not, and the spoon and fork are co-located at <code>spacetime(kitchen, 10)</code>.</p><pre><code>moved_thing(X).</code></pre><pre><code>not_moved_thing(X).</code></pre><pre><code>co_located(X, Y, ST).</code></pre><p>Probability has an accepted representation as <code>P(rain) = 0.8</code> but we don&#x27;t have functions and we want qualitative values in this example. So we do our weather forecast as: <code>forecast(wales, p(rain, high))</code>. As for the ISS tracking, we have co-ordinates and a vector: <code>track(iss, spacetime(coord(50, 19, 264), 11:52) vector(17135, direction(2, 1, -0.1)))</code>. Still not pleasant reading, but much more explicit about the relations between the numbers and we gain all the other reification advantages of being able to now treat these meaningful combinations of arguments as things in their own right.</p><h2>Conclusion</h2><p>There are multiple strategies to reification, which is why it can be hard to grasp what is meant by it. In the end it is just turning something you can&#x27;t reason about into something you can. Fortunately learning Prolog helps to gain an understanding of it because it&#x27;ll tell you when you can&#x27;t reason about something, often with a syntax error or by finding yourself stuck at not being able to define what you need.</p>

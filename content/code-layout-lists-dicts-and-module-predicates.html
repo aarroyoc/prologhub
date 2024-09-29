@@ -1,0 +1,40 @@
+<p>I&#x27;ll skip the common rules, such as spaces after commas and colons: <code>foo(A, B), foo{a: b}</code> rather than the squashed <code>foo(A,B), foo{a:b}</code>, as these rules are common to the style-guides of most languages and I&#x27;m going to assume if you&#x27;re programming in Prolog you already have a decent grounding. Instead I&#x27;ll focus on a couple of things unique to Prolog or that are a little more unusual.</p><h2>Lists</h2><p>In many languages, a trailing comma is valid syntax in a list: <code>[1, 2, 3,]</code>, not so in Prolog. Therefore, to make lists easy to edit and read, we can borrow a format used in Haskell.</p><pre><code>Fruits = 
+    [ apple
+    , pear
+    , banana
+    , kumquat
+    , satsuma
+    ]</code></pre><p>This layout, although not immediately obvious, makes it relatively simple to add and remove items from the list without making any silly mistakes with the commas. The indentation makes it easy to read, you&#x27;ll find your eye ignoring the symbols and just reading down the list.</p><h2>Dictionaries</h2><p>The same idea as used in lists is applied to dictionaries.</p><pre><code>Colours = 
+    palette{ background: "#F8FFE5"
+           , primary: "#06D6A0"
+           , secondary: "#1B9AAA"
+           , accent: "#FFC43D"
+           , warn: "#EF476F"
+           }</code></pre><h2>Declaring Modules</h2><p>The list format gives rise to a beautiful way to write your module declarations that also makes it easy to add and remove exported predicates. Indentation has been used to show to what the list belongs, the closing bracket is back on the base column to make the end obvious. This same pattern can be applied to other complex facts, shown by <code>frame/2</code>.</p><pre><code>:- module(my_new_module,
+    [
+    ]
+).
+
+:- module(with_exports,
+    [ foo/1
+    , bar/3
+    , baz/2
+    ]
+).
+
+%! frame(?ID:atom, ?Slots:pairs) is semidet.
+frame(id,
+   [ slot1-value1
+   , slot2-value2
+   ]
+).</code></pre><h2>Importing Modules</h2><p>When importing predicates from modules it is good practice to explicitly name them. Named imports help another author (including future you) browsing your code, it&#x27;s easier for them to find where that predicate came from. This is the same reason your filenames should mirror your module names. It also helps learners to navigate the library better.</p><pre><code>:- use_module(users,
+    [ login/2
+    , logout/1
+    ]
+).
+
+:- use_module(library(http/http_dispatch),
+    [ http_reply_file/3
+    , http_404/2
+    ]
+).</code></pre><h2>Conclusion</h2><p>I hope this is useful for you, I certainly find it saves me bother when editing and reading code.</p>

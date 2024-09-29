@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>PrologHub</title>
+    <link>https://prologhub.com</link>
+    <description>A place to meet and learn about Prolog</description>
+    <language>en</language>
+    <generator>Scryer Prolog</generator>
+    {% for post in posts %}
+      <item>
+        <title>{{ post.title }}</title>
+	<link>https://prologhub.com/{{ post.slug }}</link>
+	<guid isPermaLink="true">https://prologhub.com/{{ post.slug }}</guid>
+	<description><![CDATA[{{ post.content }}]]></description>
+	<pubDate>{{ post.date_rfc822 }}</pubDate>
+      </item>
+    {% endfor %}
+  </channel>
+</rss>

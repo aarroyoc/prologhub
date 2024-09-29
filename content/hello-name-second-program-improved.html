@@ -1,0 +1,34 @@
+<p>Okay, so in Prolog when we get user input at the prompt we usually need our user to be wise enough to close their input with a full-stop. Let&#x27;s demonstrate, in order for this example to work in Tau Prolog you&#x27;ll need to input a valid atom and terminate in a full-stop (the input will appear to reset but actually append until a full-stop is included). You can try <code>greet/0</code> with your favorite Prolog implementation, it&#x27;ll work in most.</p><pre><code>% A writeln substitute for the browser
+:- use_module(library(js)).
+writeln(Text) :-
+    prop(alert, Alert),
+    apply(Alert, [Text], _).
+
+greet :- 
+    read(Name),
+    atom(Name),
+    atomic_list_concat(['Hello, ', Name, '!'], Msg),
+    writeln(Msg).</code></pre><pre><code>greet.</code></pre><p>But what if our users weren&#x27;t so wise? Wouldn&#x27;t it be nice if you could type in your name without a full-stop? We can replicate the above using JavaScript to compare. In this example you can write your name with a capital letter, without escaping it in single quotes first, and without a full-stop: like most people would.</p><pre><code>% A writeln substitute for the browser
+:- use_module(library(js)).
+writeln(Text) :-
+    prop(alert, Alert),
+    apply(Alert, [Text], _).
+
+prompt(Msg, X) :-
+    prop(prompt, Prompt),
+    apply(Prompt, [Msg], X).
+
+greet :-
+    prompt('What\'s your name?', Name),
+    atomic_list_concat(['Hello, ', Name, '!'], Msg),
+    writeln(Msg).</code></pre><pre><code>greet.</code></pre><p>That&#x27;s great and all, except we&#x27;re hijacking JavaScript to do it, what we need is a solution that&#x27;ll work in the terminal. Here&#x27;s one solution that works in SWI-Prolog:</p><pre><code>read_string(String) :-
+    current_input(Stream),
+    read_string(Stream, '\n', ' \r', Sep, String0),
+    (   Sep \== -1
+    ->  String = String0
+    ;   String0 == ""
+    ).
+
+greet :-
+    read_string(Name),
+    format("Hello, ~w!", Name).</code></pre><p>That&#x27;s not going to appear in a beginner&#x27;s book anytime soon! Let&#x27;s break it down.</p><p></p><p>First we get the <code>current_input(Stream)</code>, which by default is your prompt. We then use <a href="https://www.swi-prolog.org/pldoc/doc_for?object=read_string/5"><code>read_string/5</code></a> . It reads from the <code>Stream</code> up to <code>&#x27;\n&#x27;</code>, which is when your user hit return. The argument <code>&#x27; \r&#x27;</code> are the characters stripped off the left and right of the string. <code>Sep</code> is <code>-1</code> if the user terminated the input (for example by Ctrl+D), otherwise we can unify <code>String0</code> with <code>String</code> and return that.</p><p></p><p>Try this out, you can skip the full-stop! We&#x27;re also reading a string, so case is irrelevant. If you like it, there&#x27;s a more versatile implementation <code>read_line_to_string/2</code> that can cope with files and other streams, as well as related predicates in the <a href="https://www.swi-prolog.org/pldoc/man?section=readutil">readutil library</a>.</p>

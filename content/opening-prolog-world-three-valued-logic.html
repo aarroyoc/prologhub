@@ -1,0 +1,59 @@
+<p>Our first task will be to reify the truth value from the success and failure of a predicate in Prolog. So if a predicate succeeds, it should tell us it is true:</p><p><code>tvl(P, true) :- call(P).</code></p><p>That&#x27;s the easy one.</p><p>When a predicate fails in Prolog it can be because that fact can&#x27;t be proven, or because it is known to be false and encoded to fail.</p><p>False values will need to be encoded as such, we shall do so by appending false to their predicates:</p><p><code>same_colour(red, green, false).</code></p><p><code>tvl(P, false) :- call(P, false).</code></p><p>So we&#x27;re left with only unknown predicates, which in our definition are those that can&#x27;t be proven. For the sake of backtracking, we&#x27;d better make this explicit:</p><p><code>tvl(P, unknown) :- \+ call(P), \+ call(P, false).</code></p><p>As we&#x27;ve defined it, we&#x27;ve not made it explicit that something can&#x27;t be both true and false! We might have contradictory facts in our database:</p><p><code>grasping(block).</code></p><p><code>grasping(block, false).</code></p><p>If you can guarantee facts can&#x27;t be contradicting, the above implementation will work. Otherwise we&#x27;ll need to be more explicit.</p><p></p><p></p><pre><code>% true can be proven and isn't false
+tvl(P, true) :- call(P), \+ call(P, false).
+% false can be proven and isn't true
+tvl(P, false) :- call(P, false), \+ call(P).
+
+% unknown can't be proven true or false
+tvl(P, unknown) :- \+ call(P), \+ call(P, false).
+% unknown if contradictory: i.e. proven true and false
+tvl(P, unknown) :- call(P), call(P, false).
+
+% some data
+yummy('ice-cream').
+yummy(chocolate).
+yummy(banana).
+yummy(strawberry).
+yummy(celery, false).
+
+% contradictory
+yummy(marmite).
+yummy(marmite, false).</code></pre><pre><code>tvl(yummy(Food), true).</code></pre><pre><code>tvl(yummy(celery), B).</code></pre><pre><code>tvl(yummy(bacon), B).</code></pre><pre><code>tvl(yummy(marmite), B).</code></pre><p>We&#x27;ve got our logic values! Now let&#x27;s add some operators so we can build more complex queries. It&#x27;s logic, so let&#x27;s encode the truth-tables for three-valued logic. This is quite interesting and reveals how open-world reasoning can make life difficult: an unknown fact can propagate quickly into many unknown facts in a query.</p><pre><code>% NOT truth
+not(true, false).
+not(false, true).
+not(unknown, unknown).
+
+% AND truth table
+and(true, true, true).
+and(unknown, P2, unknown) :- P2 \= false.
+and(P1, unknown, unknown) :- P1 \= false.
+and(P1, P2, false) :- P1 = false ; P2 = false.
+
+% OR truth table
+or(false, false, false).
+or(unknown, P2, unknown) :-  P2 \= true.
+or(P1, unknown, unknown) :-  P1 \= true.
+or(P1, P2, true) :- P1 = true ; P2 = true.
+
+% How to make a sundae:
+sundae_is_yummy(Topping1, Topping2, IsYummy) :-
+    tvl(yummy(Topping1), B1),
+    tvl(yummy(Topping2), B2),
+    and(B1, B2, IsYummy),
+    Topping1 \= Topping2.
+
+% As before
+% true can be proven and isn't false
+tvl(P, true) :- call(P), \+ call(P, false).
+% false can be proven and isn't true
+tvl(P, false) :- call(P, false), \+ call(P).
+
+% unknown can't be proven true or false
+tvl(P, unknown) :- \+ call(P), \+ call(P, false).
+% unknown if contradictory: i.e. proven true and false
+tvl(P, unknown) :- call(P), call(P, false).
+
+% some data
+yummy(chocolate).
+yummy(banana).
+yummy(strawberry).
+yummy(celery, false).</code></pre><pre><code>sundae_is_yummy(Topping1, Topping2, true), Topping1 @< Topping2.</code></pre><pre><code>sundae_is_yummy(bacon, Topping2, IsYummy).</code></pre><p>This kind of reasoning really shines when you integrate it into an expert system that can identify the unknown fact so that an attempt to discover it can be made, or at least alert the human to the missing information. An idea well worth playing with.</p>

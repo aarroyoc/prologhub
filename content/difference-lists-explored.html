@@ -1,0 +1,51 @@
+<h2>List vs. Difference List</h2><p>In Prolog we don&#x27;t have arrays, we have lists. Our lists are most efficiently accessed from the front, hence the syntax: <code>[Head|Tail]</code>. Furthermore, the syntax for a list: <code>[a, b, c]</code> is actually syntactic sugar for some list operator (traditionally <code>.</code>):</p><p><code>.(a, .(b, .(c, [])))</code> .</p><p>A <b>difference list</b> is just a list with a variable at the end: <code>[a, b | C]</code> or expanded <code>.(a, .(b, C))</code>. This variable is often called the <b>hole</b>. These are not valid lists as they are not complete. By having a variable/hole at the end, we can unify this variable with a new end of the list so that we can now add elements to the end of the list. Unfortunately it doesn&#x27;t allow us to pull elements off the end, only add new ones.</p><p>We&#x27;ll also use <code>&#x27;·&#x27;</code>, so we can look at lists with the syntactic sugar and without. Run the following queries to see how we can unify the variables at the end of <code>DL</code> with new values to eventually close the list.</p><pre><code>DL = [a, b | Var], Var = [c].</code></pre><pre><code>DL = [a, b | Var1], Var1 = [c | Var2], Var2 = [d].</code></pre><pre><code>DL = .(a, .(b, Var)), Var = .(c, []).</code></pre><pre><code>DL = '·'(a, '·'(b, Var)), Var = '·'(c, []).</code></pre><p>Some common errors to watch out for:</p><ul><li>Not all list predicates can cope with difference lists. <b>Warning: if you run this next query, you&#x27;ll need to refresh your browser as it will not terminate.</b></li></ul><pre><code>length([a, b, c|Hole], L).</code></pre><ul><li>A difference list closed without a list is not a valid list. Consider <code>.(a, .(b, c))</code> vs <code>.(a, .(b, .(c, [])))</code>. Therefore a predicate expecting a complete, valid list will fail, as is shown with the query <code>length([a, b|c], L)</code>.</li></ul><pre><code>DL = [a, b|Var], Var = c.</code></pre><pre><code>DL = [a, b|Var], Var = c, length(DL, L).</code></pre><ul><li>Don&#x27;t forget to use the <code>|</code> operator, otherwise you end up with nested lists.</li></ul><pre><code>DL = [a, b, Var1], Var1 = [c, Var2], Var2 = [d].</code></pre><p>When writing code that is taking advantage of tail-call optimization we often use an accumulator list, however this method reverses the order of the list. By making this accumulator a difference list the order of the original can be preserved. We&#x27;ll include an example at the end.</p><h2>Writing Readable Difference Lists</h2><p>For a whole host of reasons, code using difference lists can be difficult to read and difficult to spot:</p><ul><li>The empty difference list is a pair of variables: <code>H-H</code>, <code>dl(H, H)</code>, or just <code>H</code>, and another floating <code>H</code> could all be empty difference lists</li><li>Difference list and hole pairs are syntax agnostic: <code>L-H</code>, <code>dl(L, H)</code>, or just <code>L</code> and a <code>H</code> somewhere else in the clause could all be non-empty difference lists</li><li>New elements can be pushed to the difference list in head-of-rule unification, in the body, or in a distinct predicate</li><li>Closing the difference list can be done with an empty list or a non-empty list</li></ul><p>It&#x27;s not that they&#x27;re particularly difficult to understand conceptually, but the variety of ways they can be used means you really have to apply yourself to understanding how the author is using them when you&#x27;re reading their code, once you&#x27;ve recognized they&#x27;re using a difference list. It also gives you a plethora of choices when you decide to use one, making it difficult to remember the pattern of usage. If you do use one, make a note of it in your comments.</p><p>One solution? Write yourself a little library so you have uniformity in your own code. This is often the solution used for more complex data structures, such as queues and various types of trees. You&#x27;ll find some Prolog dialects will provide libraries that handle these more complex structures for you, which reduces our own scope for introducing errors.</p><p>For my own library, I like to wrap up a difference list in it&#x27;s own compound term, this way when I see <code>dl/2</code> I know what it is. There are a few things we need to be able to do:</p><ol><li>Create an empty difference list: <code>dl_empty/1</code></li><li>Push an element onto the end of a difference list: <code>dl_push/3</code></li><li>Close a difference list: <code>dl_close/2</code></li><li>Create a difference list from a list, which in reverse will inefficiently close a difference list: <code>dl_list/2</code></li></ol><p>Let&#x27;s code them.</p><pre><code>%! dl_empty(-DifferenceList)
+% DifferenceList is an empty difference list
+dl_empty(dl(Hole, Hole)) :-
+    var(Hole).
+
+%! dl_push(DL1, Element, DL2)
+% DL1 has Element pushed to the end it, DL2 is
+% the same list as DL1 with a new hole.
+dl_push(dl(List, [Elem|Hole]), Elem, dl(List, Hole)).
+
+%! dl_close(DifferenceList, List)
+% List is the closed DifferenceList
+dl_close(dl(List, []), List).
+
+%! dl_list(DifferenceList, List)
+% is true if List and DifferenceList contain the 
+% same elements in the same order
+dl_list(dl(Hole, Hole), []) :-
+    var(Hole), !.
+dl_list(dl([H|T1], Hole), [H|T2]) :-
+    dl_list(dl(T1, Hole), T2).</code></pre><pre><code>dl_empty(DL), dl_push(DL, a, DL2), dl_close(DL2, List).</code></pre><p>Now we&#x27;ve abstracted away the not so pretty aspects of using difference lists we can use these predicates in application.</p><h2>Applying Difference Lists</h2><p>We&#x27;ll run through a example of using a difference list, and contrast it against an example with a normal accumulator list, as well as one not using the above predicates. Use this to evaluate how you wish to use difference lists. The key trade-off to be wary of here is between readability and efficiency, you may find these additional predicates are more readable, but they&#x27;re also slightly less efficient than unifying on the head of a rule. We change syntax from <code>dl/2</code> to the <code>List-Hole</code> pair when not using the library predicates simply to demonstrate both.</p><pre><code>% Standard accumulator list
+acc_to_upper(In, Out) :-
+    acc_to_upper(In, [], Out). % Create accumulator
+acc_to_upper([], Out, Out). % Exit recursion
+acc_to_upper([H|T], Acc, Out) :-
+    upcase_atom(H, Up),
+    acc_to_upper(T, [Up|Acc], Out). % Add to accumulator and recurse
+
+% Using dl library predicates as above
+dl_to_upper(In, Out) :-
+    dl_empty(DL), % Create DL accumulator
+    dl_to_upper(In, DL, Out).
+dl_to_upper([], Acc, Out) :- % Exit recursion
+    dl_close(Acc, Out).  % Close accumulator
+dl_to_upper([H|T], Acc, Out) :-
+    upcase_atom(H, Up),
+    dl_push(Acc, Up, NewAcc), % Add to accumulator
+    dl_to_upper(T, NewAcc, Out). % Recurse
+
+% Using dl without library predicates
+to_upper(In, Out) :-
+    to_upper(In, H-H, Out). % Create DL accumulator
+to_upper([], Out-[], Out). % Close DL and exit recursion
+to_upper([H|T], Acc-[Up|Hole], Out) :- % Add to accumulator
+    upcase_atom(H, Up),
+    to_upper(T, Acc-Hole, Out). % Recurse
+
+% dl predicates as above.
+dl_empty(dl(Hole, Hole)) :- var(Hole).
+dl_push(dl(List, [Elem|Hole]), Elem, dl(List, Hole)).
+dl_close(dl(List, []), List).</code></pre><pre><code>acc_to_upper([apple, banana, clementine, damson], ReversedUpper).</code></pre><pre><code>dl_to_upper([apple, banana, clementine, damson], Upper).</code></pre><pre><code>to_upper([apple, banana, clementine, damson], Upper).</code></pre><h2>Conclusion</h2><p>How we use difference lists is really a trade off. The library of predicates make their use explicit and easy to reason about. For beginners they also abstract the mechanics of how they work away, again making them easier to use. However, this comes at an efficiency cost. In the above queries using the library required 21 resolution steps and took 6-7 milliseconds. Without the library this was 14 resolution steps and 3 milliseconds.</p><p>There&#x27;s an old adage about not optimizing too early, which provides us with a good rule of thumb here. If efficiency isn&#x27;t too critical or you&#x27;re not comfortable with using difference lists yet, then enjoy the library knowing that when you need to speed things up, it&#x27;s simple to do so. There&#x27;s one golden rule though if you&#x27;re using a difference list without a library, make it obvious in your comments!</p>

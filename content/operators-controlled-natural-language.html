@@ -1,0 +1,52 @@
+<p>First we&#x27;ll need a code base, let&#x27;s start with some classic family tree facts and rules. We&#x27;ll keep this here for later comparison.</p><pre><code>isMale(bob).
+
+isParentOf(pam, bob).
+isParentOf(tom, bob).
+isParentOf(tom, liz).
+isParentOf(bob, ann).
+isParentOf(bob, pat).
+isParentOf(pat, jim).
+
+isGrandParentOf(GP, GC) :-
+    isParentOf(GP, P),
+    isParentOf(P, GC).
+
+isGrandFatherOf(GF, GC) :-
+    isMale(GF),
+    isGrandParentOf(GF, GC).
+
+isSiblingOf(S1, S2) :-
+    isParentOf(P, S1),
+    isParentOf(P, S2),
+    S1 \= S2.</code></pre><pre><code>isGrandFatherOf(Who, jim), isSiblingOf(Who, liz).</code></pre><h2><code>op(+Precedence, +Type, :Name)</code></h2><p>Let&#x27;s declare our operators! Precedence determines the order of evaluation, <a href="https://www.swi-prolog.org/pldoc/doc_for?object=op/3">SWI-Prolog have the precedence for built-in operators in their docs</a>. Type is how the operator is evaluated: <code>xf, yf, xfx, xfy, yfx, fy or fx</code>, where f is a functor, x is an argument and y is an argument or lower precedence functor.</p><p></p><p>Let&#x27;s turn our predicates into operators and enjoy querying in a somewhat more natural way. Precedence for <code>and</code> as well as <code>or</code> is taken to be the same as that of <code>,</code> and <code>;</code>. Note how we can then use the operators in our declarations of facts and rules.</p><pre><code>:- op(1000, xfx, and).
+:- op(1100, xfx, or).
+:- op(500, xf, isMale).
+:- op(400, xfx, isParentOf).
+:- op(400, xfx, isGrandParentOf).
+:- op(400, xfx, isGrandFatherOf).
+:- op(400, xfx, isSiblingOf).
+
+and(A, B) :-
+   A, B.
+or(A, B) :-
+   A ; B.
+
+bob isMale.
+
+pam isParentOf bob.
+tom isParentOf bob.
+tom isParentOf liz.
+bob isParentOf ann.
+bob isParentOf pat.
+pat isParentOf jim.
+
+isGrandParentOf(GP, GC) :-
+    GP isParentOf P and P isParentOf GC.
+
+isGrandFatherOf(GF, GC) :-
+    GF isMale and GF isGrandParentOf GC.
+
+isSiblingOf(S1, S2) :-
+    P isParentOf S1,
+    P isParentOf S2,
+    S1 \= S2.</code></pre><pre><code>Who isGrandFatherOf jim and Who isSiblingOf liz.</code></pre><h2>The Good, the bad and the ugly</h2><p>Just because we can do something, doesn&#x27;t mean we should! Personally I appreciate this representation, but understand that some people prefer the standard syntax. Declaring operators is especially useful when working within a domain that already uses them, such as logic, especially if your implementation of Prolog supports unicode. However, the most common use seems to be to develop a structure for passing data around.</p>

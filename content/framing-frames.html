@@ -1,0 +1,79 @@
+<h2>What are Frames?</h2><p>We sometimes hear mutterings of Frames as a forerunner to <a href="https://www.w3.org/OWL/">OWL</a> or perhaps, incorrectly, Object-Oriented programming. Their place in the evolution of things is from a stage where subsumption and instantiation were being used, in Frames and Semantic Networks, but Object-Oriented achieved dominance and Description Logics were named.</p><p>A Frame, at it&#x27;s simplest, consists of an identifying label and slot-value pairs. They do get more complicated though, including &quot;values&quot; that are procedures or daemons, as described by <a href="https://www.amzi.com/ExpertSystemsInProlog/06frames.htm">AMZI!</a>, so we shan&#x27;t repeat that here. If you want the full power of objects in Prolog, then <a href="https://logtalk.org/">check out Logtalk</a>.</p><p>We&#x27;ll stick to the typical Frame conventions: <code>ako</code> is the subsumption relation (a kind of) and <code>isa</code> is the instantiation relationship (is a):</p><p><code>CAR: comment-&quot;Vehicle used for transport&quot;</code></p><p><code>LANCER: ako-CAR, manufacturer-MITSUBISHI, top_speed-127, mpg-17</code></p><p><code>SIERRA: ako-CAR, manufacturer-FORD, top_speed-118, mpg-23</code></p><p><code>VIN_JM1BK313141132051: isa-SIERRA, mot: invalid, colour-silver</code></p><p>From this small knowledge base we can assume the thing identified by <code>VIN_JM1BK313141132051</code> is a &quot;Vehicle used for transport&quot;, has a top speed of 118 and will do 23 miles-per-gallon, if it had a valid MOT.</p><p>The question is, how do we represent this in Prolog and how do we query it?</p><h2>Predicate-Based Representations</h2><p>We&#x27;ve got an identity label and slot-value pairs to represent in a structure that we&#x27;d like to be convenient to query. We could stick to a regular predicate logic representation:</p><pre><code>comment(car, 'A vehicle used for transport').
+ako(lancer, car).
+ako(sierra, car).
+manufacturer(lancer, mitsubishi).
+manufacturer(sierra, ford).
+top_speed(lancer, 127).
+top_speed(sierra, 118).
+mpg(lancer, 17).
+mpg(sierra, 23).
+isa('VIN_JM1BK313141132051', sierra).
+mot('VIN_JM1BK313141132051', invalid).
+colour('VIN_JM1BK313141132051', silver).
+
+query(ID, Slot, Value) :-
+   call(Slot, ID, Value).
+query(ID, Slot, Value) :-
+    isa(ID, Class),
+    query(Class, Slot, Value).
+query(ID, Slot, Value) :-
+    ako(ID, Parent),
+    query(Parent, Slot, Value).</code></pre><pre><code>query('VIN_JM1BK313141132051', comment, Comment).</code></pre><p>Sure, all the data is there, but it&#x27;s not really true to the &quot;identity label&quot; and &quot;slot-value&quot; pairs representation that is a Frame. Plus, Prolog&#x27;ll want your predicates grouped in the file by default, whereas for reading Frames it would be nice to have them grouped by their identity label. Maintaining a decent sized knowledge base with this format would be somewhat annoying and error prone, although <code>discontinuous/1</code> will go a long way to alleviating that.</p><p></p><p>In this representation, <b>we can&#x27;t have the slot as the variable</b> in the query, without some jiggery-pokery. However, trying to find out how a subject is related to a value is a rare query so this may not appear to cause any bother for your application, but finding all the slot-value pairs for a given subject can be a useful!</p><pre><code>query(sierra, TopSpeed, 118).</code></pre><p>For readability and to reify the slot you&#x27;ll see the representation rejigged like so:</p><pre><code>car(comment, 'A vehicle used for transport').
+lancer(ako, car).
+lancer(manufacturer, mitsubishi).
+lancer(top_speed, 127).
+lancer(mpg, 17).
+sierra(ako, car).
+sierra(manufacturer, ford).
+sierra(top_speed, 118).
+sierra(mpg, 23).
+'VIN_JM1BK313141132051'(isa, sierra). 
+'VIN_JM1BK313141132051'(mot, invalid).
+'VIN_JM1BK313141132051'(colour, silver).
+
+query(ID, Slot, Value) :-
+   call(ID, Slot, Value).
+query(ID, Slot, Value) :-
+    call(ID, isa, Class),
+    query(Class, Slot, Value).
+query(ID, Slot, Value) :-
+    call(ID, ako, Parent),
+    query(Parent, Slot, Value).</code></pre><pre><code>query('VIN_JM1BK313141132051', comment, Comment).</code></pre><p>OK, a little easier reading. Still not quite true to the single &quot;identity label&quot;, but we can at least identify the slots and the values. As before, there&#x27;s one query we can&#x27;t do with this representation, this one is even more likely to cause some bother. We <b>can&#x27;t query with a variable for the subject</b>:</p><pre><code>query(Which, top_speed, 188).</code></pre><p>In both cases, querying required us to use the <code>call/3</code> operator to compose our queries. This is the cause of the failure of queries with variables in the &quot;wrong&quot; places. One solution, triples, presents itself when declaring slots that are <a id="12" linktype="page">transitive, reflexive, or symmetric</a>, such as ako (which is reflexive and transitive). But let&#x27;s get away from repeating the identity label.</p><h2>Dicts and Pairs Representations</h2><p>Pair lists are a common data-structure in Prolog, so you&#x27;ll often find your implementation has <a href="https://www.swi-prolog.org/pldoc/man?section=pairs">some handy predicates for dealing with them</a>. Dicts are somewhat of a newcomer and although they may be trendy and more efficient for look-ups with many slots, they don&#x27;t work forwards and backwards in the same way that pairs do. Dicts seem like a a good idea, until they turn-round and bite you with an &quot;arguments insufficiently instantiated&quot; error right when you don&#x27;t want it. Feel free to try dicts, perhaps you can do a better job at it than my past attempts.</p><p>This pair representation is simplified from the more complex <a href="https://www.amzi.com/ExpertSystemsInProlog/06frames.htm">AMZI!</a> one previously mentioned:</p><pre><code>:- use_module(library(lists)).  % for member/2
+
+% frame(ID, Slots).
+frame( car, 
+    [ comment-'A vehicle used for transport'
+    ]
+).
+frame( lancer, 
+    [ ako-car
+    , manufacturer-mitsubishi
+    , top_speed-127
+    , mpg-17
+    ]
+).
+frame( sierra,
+    [ ako-car
+    , manufacturer-ford
+    , top_speed-118
+    , mpg-23
+    ]
+).
+frame( 'VIN_JM1BK313141132051',
+    [ isa-sierra
+    , mot-invalid
+    , colour-silver
+    ]
+).
+
+query(ID, Slot, Value) :-
+    frame(ID, Slots),
+    member(Slot-Value, Slots).
+query(ID, Slot, Value) :-
+    frame(ID, Slots),
+    member(isa-Class, Slots),
+    query(Class, Slot, Value).
+query(ID, Slot, Value) :-
+    frame(ID, Slots),
+    member(ako-Parent, Slots),
+    query(Parent, Slot, Value).</code></pre><pre><code>query('VIN_JM1BK313141132051', comment, Comment).</code></pre><p>Maybe I&#x27;m biased, but those frames are beautiful reading! This is a frame representation that stays true to what a frame is. It&#x27;s not all wins though by using this representation, our queries are likely to be less efficient, particularly when the identity label is the variable of your query, (<code>?-query(Car, mpg, 17).</code>) but we can have variables anywhere in the query.</p><h2>Conclusion</h2><p>Well there&#x27;s three different ways to represent a &quot;frame&quot; here in your Prolog code, plus the triples style in <a id="12" linktype="page">Reflexive, Symmetric and Transitive Relations in Prolog</a>. Perhaps this great flexibility with the trade-offs in efficiency and readability are one reason why there&#x27;s no &quot;standard Prolog frame&quot;.</p><p>At the end of the day, it&#x27;s a way to write your data and query it, with subsumption and instantiation. The additional features required, such as reified relationships, daemon procedures or non-functional relationships, as well as the typical queries you&#x27;re expecting, will determine how you&#x27;ll write your frames. Hopefully this little jaunt will have provided enough ideas for you to spin your own frames next time you&#x27;re finding yourself in need.</p>
